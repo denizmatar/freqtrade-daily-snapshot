@@ -8,6 +8,18 @@ from keys import *
 
 class Analysis:
 
+    INVESTORS = {
+        "DENIZ": {"investment": 500,
+                  "email": "denizmatar1@gmail.com"},
+        "BARAN": {"comission": 0.5,
+                  "investment": 200,
+                  "email": "baranselcarpa@gmail.com"}
+    }
+
+    MAIL_ATTACHMENT_PATH = '/Users/denizmatar/freqtrade/user_data/strategy_analysis/daily_snapshots.csv'
+
+    DATABASE_PATH = '/Users/denizmatar/freqtrade/raspberry_pi/tradesv3.sqlite'
+
     SQL_COMMAND_ALL = "SELECT trades.id AS trades_id, trades.exchange AS trades_exchange, trades.pair AS trades_pair, trades.is_open AS trades_is_open, trades.fee_open AS trades_fee_open, trades.fee_open_cost AS trades_fee_open_cost, trades.fee_open_currency AS trades_fee_open_currency, trades.fee_close AS trades_fee_close, trades.fee_close_cost AS trades_fee_close_cost, trades.fee_close_currency AS trades_fee_close_currency, trades.open_rate AS trades_open_rate, trades.open_rate_requested AS trades_open_rate_requested, trades.open_trade_value AS trades_open_trade_value, trades.close_rate AS trades_close_rate, trades.close_rate_requested AS trades_close_rate_requested, trades.close_profit AS trades_close_profit, trades.close_profit_abs AS trades_close_profit_abs, trades.stake_amount AS trades_stake_amount, trades.amount AS trades_amount, trades.amount_requested AS trades_amount_requested, trades.open_date AS trades_open_date, trades.close_date AS trades_close_date, trades.open_order_id AS trades_open_order_id, trades.stop_loss AS trades_stop_loss, trades.stop_loss_pct AS trades_stop_loss_pct, trades.initial_stop_loss AS trades_initial_stop_loss, trades.initial_stop_loss_pct AS trades_initial_stop_loss_pct, trades.stoploss_order_id AS trades_stoploss_order_id, trades.stoploss_last_update AS trades_stoploss_last_update, trades.max_rate AS trades_max_rate, trades.min_rate AS trades_min_rate, trades.sell_reason AS trades_sell_reason, trades.sell_order_status AS trades_sell_order_status, trades.strategy AS trades_strategy, trades.timeframe AS trades_timeframe FROM trades"
     SQL_COMMAND_TOTAL_PROFIT = "SELECT trades.close_profit_abs FROM trades WHERE sell_order_status ='closed'"
     SQL_COMMAND_DAILY_PROFIT = "SELECT trades.id, trades.close_profit_abs FROM trades"
@@ -23,28 +35,16 @@ class Analysis:
     SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_OPEN = "UPDATE trades SET open_timestamp = ? WHERE id = ?"
     SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_CLOSE = "UPDATE trades SET close_timestamp = ? WHERE id = ?"
 
-    INVESTORS = {
-        "DENIZ": {"investment": 500},
-        "BARAN": {"profit": 0.5,
-                  "investment": 200}
-    }
-
-    PROFIT_DENIZ = 0.5
-    PROFIT_BARAN = 0.5
-
-    INITIAL_INVESTMENT_DENIZ = 500
-    INITIAL_INVESTMENT_BARAN = 200
-
     STAKE_AMOUNT_V1 = 16.5
     STAKE_AMOUNT_V2 = 62.5
-    STAKE_AMOUNT_V3 = 87.5
+    STAKE_AMOUNT_V3 = 87.5  # Only V3 is used
 
     WHOLE_DAY_TIMESTAMP = 86400
     DELTA_UTC = 10800
 
 
-    def __init__(self, db_path="/Users/denizmatar/freqtrade/raspberry_pi/tradesv3.sqlite"):
-        self.db_path = db_path
+    def __init__(self):
+        self.db_path = self.DATABASE_PATH
         self.db_connector()
         self.current_time, self.yesterday = self.get_date()
         self.current_timestamp = self.current_timestamp_generator()
@@ -63,6 +63,7 @@ class Analysis:
         self.balance = self.get_balances()
         self.profit_deniz, self.profit_baran = self.profit_apportioner()
         self.data_dictionary = self.dictionary_builder()
+        self.mail_list = self.mail_list_generator()
 
     def daily_snapshot(self):
         '''Sort of the main function. Calls dictionary builder to build the dictionary, then writes the new values into csv'''
@@ -308,7 +309,7 @@ class Analysis:
         '''Returns ratio of profit for the trader and investors'''
         investment_deniz = self.INVESTORS['DENIZ']['investment']
         investment_baran = self.INVESTORS['BARAN']['investment']
-        comission_baran = self.INVESTORS['BARAN']['profit']
+        comission_baran = self.INVESTORS['BARAN']['comission']
 
         total_investment = investment_deniz + investment_baran
 
@@ -338,7 +339,12 @@ class Analysis:
         }
         return data_dictionary
 
-    def mailer(self):
+    def mail_list_generator(self):
+        investors_list = list(self.INVESTORS.values())
+        receiver_list = [email['email'] for email in investors_list]
+        return receiver_list
+
+    def mailer(self, *receiver_list):
         '''E-mails daily_snapshot.csv'''
 
         import smtplib
@@ -348,8 +354,10 @@ class Analysis:
         password = mail_password
         smtp_server = "smtp.gmail.com"
         sender_email = "testerdeniztester1@gmail.com"
-        receiver_email1 = "denizmatar1@gmail.com"
-        receiver_email2 = "baranselcarpa@gmail.com"
+
+        investors_list = list(self.INVESTORS.values())
+        receiver_list = [email['email'] for email in investors_list]
+
         message = ""
 
         # server.starttls()
@@ -357,10 +365,10 @@ class Analysis:
         msg = EmailMessage()
         msg['Subject'] = "{} Daily Snapshot".format(self.yesterday)
         msg['From'] = sender_email
-        msg['To'] = receiver_email1, receiver_email2
+        msg['To'] = receiver_list 
         msg.set_content(message)
 
-        attachment = '/Users/denizmatar/freqtrade/user_data/strategy_analysis/daily_snapshots.csv'
+        attachment = self.MAIL_ATTACHMENT_PATH
 
         with open(attachment, 'rb') as f:
             file_data = f.read()
@@ -371,6 +379,5 @@ class Analysis:
         server.login(sender_email, password)
         print("Login Success")
 
-        # msg['To'] = receiver_email2
         server.send_message(msg)
         print("Message Sent")
