@@ -358,8 +358,6 @@ class Analysis:
         investors_list = list(self.INVESTORS.values())
         receiver_list = [email['email'] for email in investors_list]
 
-        receiver_email1 = self.INVESTORS['DENIZ']['email']
-        # receiver_email2 = self.INVESTORS['BARAN']['email']
         message = ""
 
         # server.starttls()
@@ -367,7 +365,7 @@ class Analysis:
         msg = EmailMessage()
         msg['Subject'] = "{} Daily Snapshot".format(self.yesterday)
         msg['From'] = sender_email
-        msg['To'] = receiver_list # receiver_email1, #receiver_email2
+        msg['To'] = receiver_list 
         msg.set_content(message)
 
         attachment = self.MAIL_ATTACHMENT_PATH
