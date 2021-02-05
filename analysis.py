@@ -113,6 +113,7 @@ class Analysis:
         current_timestamp = str(time.mktime(time.strptime(self.current_time, "%Y-%m-%d"))).split(".")[0]
         # current_timestamp = 1612310400        # for testing with old databases
         return current_timestamp
+    # TODO: add functionality by adding a time parameter
 
     def get_all(self):
         '''Gathers all data'''
@@ -281,6 +282,7 @@ class Analysis:
                         account_dictionary["balances"][i]["locked"])) \
                                      * float(pair_info[j]['price'])
         return total_balance
+    # TODO: add functionality by getting api and secret key from parameters
 
     def daily_investment_calculator(self):
         '''Returns the amount invested previous day'''
@@ -320,6 +322,7 @@ class Analysis:
         profit_baran = profit_share_ratio_baran * self.daily_profit
 
         return profit_deniz, profit_baran
+    # TODO: change structure to work for more investors
 
     def dictionary_builder(self):
         '''Builds and returns a dictionary to later transform into csv format'''
@@ -338,6 +341,7 @@ class Analysis:
             # "max_open_trades:": self.max_open_trades,
         }
         return data_dictionary
+    # TODO: change structure to add more investors as column names 
 
     def mail_list_generator(self):
         investors_list = list(self.INVESTORS.values())
@@ -358,16 +362,14 @@ class Analysis:
         investors_list = list(self.INVESTORS.values())
         receiver_list = [email['email'] for email in investors_list]
 
-        receiver_email1 = self.INVESTORS['DENIZ']['email']
-        # receiver_email2 = self.INVESTORS['BARAN']['email']
         message = ""
 
-        # server.starttls()
+        # server.starttls()     # don't know why this is here
 
         msg = EmailMessage()
         msg['Subject'] = "{} Daily Snapshot".format(self.yesterday)
         msg['From'] = sender_email
-        msg['To'] = receiver_list # receiver_email1, #receiver_email2
+        msg['To'] = receiver_list 
         msg.set_content(message)
 
         attachment = self.CSV_PATH
