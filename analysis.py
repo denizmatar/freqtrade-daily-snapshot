@@ -16,7 +16,7 @@ class Analysis:
                   "email": "baranselcarpa@gmail.com"}
     }
 
-    MAIL_ATTACHMENT_PATH = '/Users/denizmatar/freqtrade/user_data/strategy_analysis/daily_snapshots.csv'
+    CSV_PATH = '/Users/denizmatar/freqtrade/user_data/strategy_analysis/daily_snapshots.csv'
 
     DATABASE_PATH = '/Users/denizmatar/freqtrade/raspberry_pi/tradesv3.sqlite'
 
@@ -76,7 +76,7 @@ class Analysis:
         print("Data dictionary created.")
         print(data_dictionary)
 
-        with open('daily_snapshots.csv', mode='a') as csv_file:
+        with open(self.CSV_PATH, mode='a') as csv_file:
             print("Csv file opened.")
             writer = csv.DictWriter(csv_file, fieldnames=field_names, delimiter=',', extrasaction='ignore')
             # writer.writeheader()
@@ -358,6 +358,8 @@ class Analysis:
         investors_list = list(self.INVESTORS.values())
         receiver_list = [email['email'] for email in investors_list]
 
+        receiver_email1 = self.INVESTORS['DENIZ']['email']
+        # receiver_email2 = self.INVESTORS['BARAN']['email']
         message = ""
 
         # server.starttls()
@@ -365,10 +367,10 @@ class Analysis:
         msg = EmailMessage()
         msg['Subject'] = "{} Daily Snapshot".format(self.yesterday)
         msg['From'] = sender_email
-        msg['To'] = receiver_list 
+        msg['To'] = receiver_list # receiver_email1, #receiver_email2
         msg.set_content(message)
 
-        attachment = self.MAIL_ATTACHMENT_PATH
+        attachment = self.CSV_PATH
 
         with open(attachment, 'rb') as f:
             file_data = f.read()
