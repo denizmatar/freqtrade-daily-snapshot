@@ -1,4 +1,4 @@
-# db-analysis
+# Freqtrade Bot DB Daily Snapshot
 
 Analyzes DB and returns a CSV file. Then mails it to the investors.
 
