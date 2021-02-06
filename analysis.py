@@ -118,7 +118,7 @@ class Analysis:
 
     def current_timestamp_generator(self):
         current_timestamp = str(time.mktime(time.strptime(self.current_time, "%Y-%m-%d"))).split(".")[0]
-        current_timestamp = 1612310400        # for testing with old databases
+        # current_timestamp = 1612310400        # for testing with old databases
         return current_timestamp
     # TODO: add functionality by adding a time parameter
 
