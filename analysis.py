@@ -254,6 +254,7 @@ class Analysis:
             if count not in counts_list:
                 counts_list.append(count)
         return max(counts_list)
+    # FIX ME: takes 60 seconds... 
 
     def get_balances(self):
         '''Gets the current balance info using python-binance module. Note that shows in total current USDT value'''
