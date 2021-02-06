@@ -30,7 +30,8 @@ class Analysis:
 
     STAKE_AMOUNT_V1 = 16.5
     STAKE_AMOUNT_V2 = 62.5
-    STAKE_AMOUNT_V3 = 87.5  # Only V3 is used
+    STAKE_AMOUNT_V3 = 87.5  
+    STAKE_AMOUNT_V4 = 140     # Only V4 is used
     # Things to customize ends here ---------------------------------------------------------
 
     SQL_COMMAND_ALL = "SELECT trades.id AS trades_id, trades.exchange AS trades_exchange, trades.pair AS trades_pair, trades.is_open AS trades_is_open, trades.fee_open AS trades_fee_open, trades.fee_open_cost AS trades_fee_open_cost, trades.fee_open_currency AS trades_fee_open_currency, trades.fee_close AS trades_fee_close, trades.fee_close_cost AS trades_fee_close_cost, trades.fee_close_currency AS trades_fee_close_currency, trades.open_rate AS trades_open_rate, trades.open_rate_requested AS trades_open_rate_requested, trades.open_trade_value AS trades_open_trade_value, trades.close_rate AS trades_close_rate, trades.close_rate_requested AS trades_close_rate_requested, trades.close_profit AS trades_close_profit, trades.close_profit_abs AS trades_close_profit_abs, trades.stake_amount AS trades_stake_amount, trades.amount AS trades_amount, trades.amount_requested AS trades_amount_requested, trades.open_date AS trades_open_date, trades.close_date AS trades_close_date, trades.open_order_id AS trades_open_order_id, trades.stop_loss AS trades_stop_loss, trades.stop_loss_pct AS trades_stop_loss_pct, trades.initial_stop_loss AS trades_initial_stop_loss, trades.initial_stop_loss_pct AS trades_initial_stop_loss_pct, trades.stoploss_order_id AS trades_stoploss_order_id, trades.stoploss_last_update AS trades_stoploss_last_update, trades.max_rate AS trades_max_rate, trades.min_rate AS trades_min_rate, trades.sell_reason AS trades_sell_reason, trades.sell_order_status AS trades_sell_order_status, trades.strategy AS trades_strategy, trades.timeframe AS trades_timeframe FROM trades"
@@ -294,11 +295,11 @@ class Analysis:
 
     def daily_investment_calculator(self):
         '''Returns the amount invested previous day'''
-        return len(self.daily_id_list) * self.STAKE_AMOUNT_V3
+        return len(self.daily_id_list) * self.STAKE_AMOUNT_V4
 
     def total_investment_calculator(self):
         '''Returns the total amount invested'''
-        return self.total_trade_number * self.STAKE_AMOUNT_V3
+        return self.total_trade_number * self.STAKE_AMOUNT_V4
 
     def roi_calculator(self, range):
         '''Returns either daily return on investment or total return on investment'''
@@ -336,7 +337,7 @@ class Analysis:
             "account_balance": self.balance,
             "daily_profit": self.daily_profit,
             "daily_trade_count": self.daily_trade_number,
-            "stake_amount": self.STAKE_AMOUNT_V3,
+            "stake_amount": self.STAKE_AMOUNT_V4,
             "daily_investment": self.daily_investment,
             "daily_ROI": self.daily_roi,
             "total_investment": self.total_investment,
