@@ -3,36 +3,19 @@ import sqlite3
 import json
 from datetime import date, timedelta
 from binance.client import Client
-from keys import *
+from config import *
 
 
 class Analysis:
 
-    # Things to customize starts here--------------------------------------------------------
-    INVESTORS = {
-        0: {"id": "DENIZ",
-            "investment": 500,
-            "commission": 1,
-            "email": "denizmatar1@gmail.com"},
-        1: {"id": "BARAN",
-            "investment": 200,
-            "commission": 0.5,
-            "email": "baranselcarpa@gmail.com"},
-        2: {"id": "SITKI",
-            "investment": 0,
-            "commission": 0.25,
-            "email": "sitkimatar@gmail.com"}
-    }
+    CSV_PATH = csv_path
 
-    CSV_PATH = '/Users/denizmatar/freqtrade/user_data/strategy_analysis/daily_snapshots.csv'
-
-    DATABASE_PATH = '/Users/denizmatar/freqtrade/raspberry_pi/tradesv3.sqlite'
+    DATABASE_PATH = database_path
 
     STAKE_AMOUNT_V1 = 16.5
     STAKE_AMOUNT_V2 = 62.5
-    STAKE_AMOUNT_V3 = 87.5  
+    STAKE_AMOUNT_V3 = 87.5
     STAKE_AMOUNT_V4 = 140     # Only V4 is used
-    # Things to customize ends here ---------------------------------------------------------
 
     SQL_COMMAND_ALL = "SELECT trades.id AS trades_id, trades.exchange AS trades_exchange, trades.pair AS trades_pair, trades.is_open AS trades_is_open, trades.fee_open AS trades_fee_open, trades.fee_open_cost AS trades_fee_open_cost, trades.fee_open_currency AS trades_fee_open_currency, trades.fee_close AS trades_fee_close, trades.fee_close_cost AS trades_fee_close_cost, trades.fee_close_currency AS trades_fee_close_currency, trades.open_rate AS trades_open_rate, trades.open_rate_requested AS trades_open_rate_requested, trades.open_trade_value AS trades_open_trade_value, trades.close_rate AS trades_close_rate, trades.close_rate_requested AS trades_close_rate_requested, trades.close_profit AS trades_close_profit, trades.close_profit_abs AS trades_close_profit_abs, trades.stake_amount AS trades_stake_amount, trades.amount AS trades_amount, trades.amount_requested AS trades_amount_requested, trades.open_date AS trades_open_date, trades.close_date AS trades_close_date, trades.open_order_id AS trades_open_order_id, trades.stop_loss AS trades_stop_loss, trades.stop_loss_pct AS trades_stop_loss_pct, trades.initial_stop_loss AS trades_initial_stop_loss, trades.initial_stop_loss_pct AS trades_initial_stop_loss_pct, trades.stoploss_order_id AS trades_stoploss_order_id, trades.stoploss_last_update AS trades_stoploss_last_update, trades.max_rate AS trades_max_rate, trades.min_rate AS trades_min_rate, trades.sell_reason AS trades_sell_reason, trades.sell_order_status AS trades_sell_order_status, trades.strategy AS trades_strategy, trades.timeframe AS trades_timeframe FROM trades"
     SQL_COMMAND_TOTAL_PROFIT = "SELECT trades.close_profit_abs FROM trades WHERE sell_order_status ='closed'"
@@ -43,6 +26,7 @@ class Analysis:
     SQL_COMMAND_TIMESTAMP_OPEN = "ALTER TABLE trades ADD open_timestamp"
     SQL_COMMAND_TIMESTAMP_CLOSE = "ALTER TABLE trades ADD close_timestamp"
     SQL_COMMAND_MAX_OPEN_TRADES = "SELECT trades.pair, trades.open_timestamp, trades.close_timestamp FROM trades WHERE close_timestamp IS NOT NULL"
+    SQL_COMMAND_TOTAL_INVESTMENT = "SELECT SUM(trades.stake_amount) FROM trades"
     SQL_COMMAND_DAILY_TRADE_COUNT = "SELECT trades.close_timestamp, trades.id FROM trades WHERE close_timestamp IS NOT NULL"
     SQL_COMMAND_TOTAL_TRADE_COUNT = "SELECT COUNT(*) FROM trades"
     SQL_COMMAND_TIMESTAMP_GENERATOR = "SELECT trades.open_date, trades.close_date, id FROM trades WHERE close_timestamp IS NULL"
@@ -50,7 +34,7 @@ class Analysis:
     SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_CLOSE = "UPDATE trades SET close_timestamp = ? WHERE id = ?"
 
     WHOLE_DAY_TIMESTAMP = 86400
-    DELTA_UTC = 10800       # Used for adjusting for UTC+3
+    DELTA_UTC = 10800       # Not used rn but used to be for adjusting for UTC+3
 
     def __init__(self):
         self.db_path = self.DATABASE_PATH
@@ -85,11 +69,11 @@ class Analysis:
         print(data_dictionary)
 
         with open(self.CSV_PATH, mode='a') as csv_file:
-            print("Csv file opened.")
+            print("CSV file opened.")
             writer = csv.DictWriter(csv_file, fieldnames=field_names, delimiter=',', extrasaction='ignore')
             writer.writeheader()    # Should be disabled when writing to an existing csv file
             writer.writerow(data_dictionary)
-            print("Row written")
+            print("New row added.")
         self.db_closer()
 
     def db_connector(self):
@@ -112,14 +96,14 @@ class Analysis:
         # Only for yesterday
         today = date.today()
         yesterday = today - timedelta(1)
-        print(str(yesterday))
+        print("Date:", str(yesterday))
 
         current_time = time.strftime("%Y-%m-%d", t)
         return current_time, str(yesterday)
 
     def current_timestamp_generator(self):
         current_timestamp = str(time.mktime(time.strptime(self.current_time, "%Y-%m-%d"))).split(".")[0]
-        # current_timestamp = 1612310400        # for testing with old databases
+        # current_timestamp = 1612731720        # for testing with old databases
         return current_timestamp
     # TODO: add functionality by adding a time parameter
 
@@ -140,7 +124,7 @@ class Analysis:
         for id, profit in results:
             if id in self.daily_id_list:
                 daily_profit += profit
-        return daily_profit
+        return daily_profit # str(daily_profit).split(".")[0] + "." + str(daily_profit).split(".")[1][:2]
 
     def total_profit_calculator(self):
         '''Calculates the total profit'''
@@ -187,13 +171,16 @@ class Analysis:
         # Try adding open_timestamp column
         try:
             cursor.execute(self.SQL_COMMAND_TIMESTAMP_OPEN)
-        except:
+        except sqlite3.OperationalError as e:
+            print("open_timestamp column check okay. INFO:", e)
             pass
+
 
         # Try adding close_timestamp column
         try:
             cursor.execute(self.SQL_COMMAND_TIMESTAMP_CLOSE)
-        except:
+        except sqlite3.OperationalError as e:
+            print("close_timestamp column check okay. INFO:", e)
             pass
 
     def timestamp_generator(self):
@@ -205,18 +192,17 @@ class Analysis:
             try:
                 open_date = results[i][0][:16] # [:16] means --> "%Y-%m-%d %H:%M
                 close_date = results[i][1][:16]
+
                 open_date_timestamp = str(time.mktime(time.strptime(open_date, "%Y-%m-%d %H:%M"))).split(".")[0]
                 close_date_timestamp = str(time.mktime(time.strptime(close_date, "%Y-%m-%d %H:%M"))).split(".")[0]
 
                 open_date_timestamp = int(open_date_timestamp)
-                open_date_timestamp += self.DELTA_UTC
                 close_date_timestamp = int(close_date_timestamp)
-                close_date_timestamp += self.DELTA_UTC
 
                 cursor.execute(self.SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_OPEN, (str(open_date_timestamp), results[i][2]))
                 cursor.execute(self.SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_CLOSE, (str(close_date_timestamp), results[i][2]))
-            except:
-                pass
+            except TypeError:
+                print("Did not add timestamps for an unclosed trade (Trade ID: {})".format(results[i][2]))
             connection.commit()
 
     def daily_id_list_generator(self):
@@ -227,14 +213,14 @@ class Analysis:
         daily_id_list = []
 
         current_timestamp = self.current_timestamp
-        # yesterday_timestamp =
-        previous_day_timestamp = int(current_timestamp) - self.WHOLE_DAY_TIMESTAMP + self.DELTA_UTC
 
-        for timestamp in results:
+        previous_day_timestamp = int(current_timestamp) - self.WHOLE_DAY_TIMESTAMP
 
-            if previous_day_timestamp <= int(timestamp[0]) and int(timestamp[0]) < int(current_timestamp): # burda bi sikinti var
-                daily_id_list.append(timestamp[1])
-        print("Today's trade id's:", daily_id_list)
+        for timestamp, id in results:
+
+            if previous_day_timestamp <= int(timestamp) and int(timestamp) < int(current_timestamp): # burda bi sikinti var
+                daily_id_list.append(id)
+        print("{} Trade IDs:".format(self.yesterday), daily_id_list)
         return daily_id_list
 
     def daily_trade_counter(self):
@@ -299,7 +285,9 @@ class Analysis:
 
     def total_investment_calculator(self):
         '''Returns the total amount invested'''
-        return self.total_trade_number * self.STAKE_AMOUNT_V4
+        cursor.execute(self.SQL_COMMAND_TOTAL_INVESTMENT)
+        result = cursor.fetchall()  # type(results): list
+        return result[0][0]
 
     def roi_calculator(self, range):
         '''Returns either daily return on investment or total return on investment'''
@@ -319,42 +307,46 @@ class Analysis:
     def profit_apportioner(self):
         '''Returns ratio of profit for the investors. Works for any number of investors.
         Only note that the if statement in the for loop should be adjusted according to the trader's name'''
-        investors_list = list(self.INVESTORS.values())
-        number_of_investors = len(self.INVESTORS)
+        investors_list = list(INVESTORS.values())
+        number_of_investors = len(INVESTORS)
         total_investment = sum([investor['investment'] for investor in investors_list])
         investors_list[0]['profit_ratio'] = 1
 
         for i in range(number_of_investors):
             if investors_list[i]['id'] != 'DENIZ':
                 profit_ratio = investors_list[i]["investment"] / total_investment * (1 - investors_list[i]["commission"])
-                self.INVESTORS[0]['profit_ratio'] -= profit_ratio
-                self.INVESTORS[i]["profit_ratio"] = profit_ratio
+                INVESTORS[0]['profit_ratio'] -= profit_ratio
+                INVESTORS[i]["profit_ratio"] = profit_ratio
+
+    def float_formatter(self, float):
+        '''Formats the floats to display only 2 decimals'''
+        return "{:.2f}".format(float)
 
     def dictionary_builder(self):
         '''Builds and returns a dictionary to later transform into csv format'''
         data_dictionary = {
             "date": self.yesterday,
-            "account_balance": self.balance,
-            "daily_profit": self.daily_profit,
+            "account_balance": self.float_formatter(self.balance),
+            "daily_profit": self.float_formatter(self.daily_profit),
             "daily_trade_count": self.daily_trade_number,
             "stake_amount": self.STAKE_AMOUNT_V4,
             "daily_investment": self.daily_investment,
-            "daily_ROI": self.daily_roi,
-            "total_investment": self.total_investment,
-            "total_ROI": self.total_roi
+            "daily_ROI": self.float_formatter(self.daily_roi),
+            "total_investment": self.float_formatter(self.total_investment),
+            "total_ROI": self.float_formatter(self.total_roi)
             # "max_open_trades:": self.max_open_trades,
         }
 
-        investors_list_new = list(self.INVESTORS.values())
+        investors_list_new = list(INVESTORS.values())
 
         for i in range(len(investors_list_new)):
             data_dictionary["profit_{}".format(investors_list_new[i]["id"])] = \
-                investors_list_new[i]["profit_ratio"] * self.daily_profit
+                self.float_formatter(investors_list_new[i]["profit_ratio"] * self.daily_profit)
 
         return data_dictionary
 
     def mail_list_generator(self):
-        investors_list = list(self.INVESTORS.values())
+        investors_list = list(INVESTORS.values())
         receiver_list = [investor['email'] for investor in investors_list]
         return receiver_list
 
@@ -387,7 +379,7 @@ class Analysis:
 
         server = smtplib.SMTP_SSL(smtp_server, 465)
         server.login(sender_email, password)
-        print("Login Successful")
+        print("Login successful.")
 
         server.send_message(msg)
-        print("Message Sent")
+        print("Message sent.", "\n")
