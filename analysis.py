@@ -58,7 +58,7 @@ class Analysis:
         self.data_dictionary = self.dictionary_builder()
         self.mail_list = self.mail_list_generator()
 
-    def daily_snapshot(self):
+    def daily_snapshot(self, headers=False):
         '''Sort of the main function. Calls dictionary builder to build the dictionary, then writes the new values into csv'''
         import csv
 
@@ -71,7 +71,8 @@ class Analysis:
         with open(self.CSV_PATH, mode='a') as csv_file:
             print("CSV file opened.")
             writer = csv.DictWriter(csv_file, fieldnames=field_names, delimiter=',', extrasaction='ignore')
-            writer.writeheader()    # Should be disabled when writing to an existing csv file
+            if headers:
+                writer.writeheader()    # Should be disabled when writing to an existing csv file
             writer.writerow(data_dictionary)
             print("New row added.")
         self.db_closer()
