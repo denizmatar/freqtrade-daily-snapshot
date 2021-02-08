@@ -29,12 +29,12 @@ class Analysis:
     SQL_COMMAND_TOTAL_INVESTMENT = "SELECT SUM(trades.stake_amount) FROM trades"
     SQL_COMMAND_DAILY_TRADE_COUNT = "SELECT trades.close_timestamp, trades.id FROM trades WHERE close_timestamp IS NOT NULL"
     SQL_COMMAND_TOTAL_TRADE_COUNT = "SELECT COUNT(*) FROM trades"
-    SQL_COMMAND_TIMESTAMP_GENERATOR = "SELECT trades.open_date, trades.close_date, id FROM trades WHERE close_timestamp IS NULL"
+    SQL_COMMAND_TIMESTAMP_GENERATOR = "SELECT trades.open_date, trades.close_date, id FROM trades"#" WHERE close_timestamp IS NULL"
     SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_OPEN = "UPDATE trades SET open_timestamp = ? WHERE id = ?"
     SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_CLOSE = "UPDATE trades SET close_timestamp = ? WHERE id = ?"
 
     WHOLE_DAY_TIMESTAMP = 86400
-    DELTA_UTC = 10800       # Not used rn but used to be for adjusting for UTC+3
+    DELTA_UTC = 10800
 
     def __init__(self):
         self.db_path = self.DATABASE_PATH
@@ -92,19 +92,15 @@ class Analysis:
 
     def get_date(self):
         '''Returns current date: (i.e 2021-02-04)'''
-        t = time.localtime()
-
-        # Only for yesterday
         today = date.today()
         yesterday = today - timedelta(1)
         print("Date:", str(yesterday))
 
-        current_time = time.strftime("%Y-%m-%d", t)
-        return current_time, str(yesterday)
+        return str(today), str(yesterday)
 
     def current_timestamp_generator(self):
-        current_timestamp = str(time.mktime(time.strptime(self.current_time, "%Y-%m-%d"))).split(".")[0]
-        # current_timestamp = 1612731720        # for testing with old databases
+        current_timestamp = int(str(time.mktime(time.strptime(self.current_time, "%Y-%m-%d"))).split(".")[0])
+        # current_timestamp = 1612828800        # for testing with old databases
         return current_timestamp
     # TODO: add functionality by adding a time parameter
 
@@ -195,8 +191,8 @@ class Analysis:
                 open_date_timestamp = str(time.mktime(time.strptime(open_date, "%Y-%m-%d %H:%M"))).split(".")[0]
                 close_date_timestamp = str(time.mktime(time.strptime(close_date, "%Y-%m-%d %H:%M"))).split(".")[0]
 
-                open_date_timestamp = int(open_date_timestamp)
-                close_date_timestamp = int(close_date_timestamp)
+                open_date_timestamp = int(open_date_timestamp) + self.DELTA_UTC
+                close_date_timestamp = int(close_date_timestamp) + self.DELTA_UTC
 
                 cursor.execute(self.SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_OPEN, (str(open_date_timestamp), results[i][2]))
                 cursor.execute(self.SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_CLOSE, (str(close_date_timestamp), results[i][2]))
@@ -211,7 +207,7 @@ class Analysis:
 
         daily_id_list = []
 
-        current_timestamp = self.current_timestamp
+        current_timestamp = self.current_timestamp - self.DELTA_UTC
         previous_day_timestamp = int(current_timestamp) - self.WHOLE_DAY_TIMESTAMP
 
         for timestamp, id in results:
@@ -329,7 +325,7 @@ class Analysis:
             "stake_amount": str(self.STAKE_AMOUNT_V4) + "$",
             "daily_investment": str(self.daily_investment) + "$",
             "daily_ROI": self.float_formatter(self.daily_roi) + "%",
-            "total_investment": self.float_formatter(self.total_investment) + "$",
+            "total_investment": self.float_formatter(self.total_investment) + "$", # check this
             "total_ROI": self.float_formatter(self.total_roi) + "%"
             # "max_open_trades:": self.max_open_trades,
         }
