@@ -104,7 +104,7 @@ class Analysis:
 
     def current_timestamp_generator(self):
         current_timestamp = str(time.mktime(time.strptime(self.current_time, "%Y-%m-%d"))).split(".")[0]
-        # current_timestamp = 1612731720        # for testing with old databases
+        # current_timestamp = 1612742400        # for testing with old databases
         return current_timestamp
     # TODO: add functionality by adding a time parameter
 
@@ -329,7 +329,7 @@ class Analysis:
             "stake_amount": str(self.STAKE_AMOUNT_V4) + "$",
             "daily_investment": str(self.daily_investment) + "$",
             "daily_ROI": self.float_formatter(self.daily_roi) + "%",
-            "total_investment": self.float_formatter(self.total_investment) + "$",
+            "total_investment": self.float_formatter(self.total_investment) + "$", # check this
             "total_ROI": self.float_formatter(self.total_roi) + "%"
             # "max_open_trades:": self.max_open_trades,
         }
