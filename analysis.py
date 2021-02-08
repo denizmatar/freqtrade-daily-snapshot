@@ -58,7 +58,7 @@ class Analysis:
         self.data_dictionary = self.dictionary_builder()
         self.mail_list = self.mail_list_generator()
 
-    def daily_snapshot(self):
+    def daily_snapshot(self, headers=False):
         '''Sort of the main function. Calls dictionary builder to build the dictionary, then writes the new values into csv'''
         import csv
 
@@ -71,7 +71,8 @@ class Analysis:
         with open(self.CSV_PATH, mode='a') as csv_file:
             print("CSV file opened.")
             writer = csv.DictWriter(csv_file, fieldnames=field_names, delimiter=',', extrasaction='ignore')
-            writer.writeheader()    # Should be disabled when writing to an existing csv file
+            if headers:
+                writer.writeheader()
             writer.writerow(data_dictionary)
             print("New row added.")
         self.db_closer()
@@ -116,26 +117,25 @@ class Analysis:
     def daily_profit_calculator(self):
         '''Calculates the daily profit of the PREVIOUS DAY'''
         cursor.execute(self.SQL_COMMAND_DAILY_PROFIT)
-        results = cursor.fetchall()  # type(results): list
-        # print(results)
+        results = cursor.fetchall()
 
         daily_profit = 0
 
         for id, profit in results:
             if id in self.daily_id_list:
                 daily_profit += profit
-        return daily_profit # str(daily_profit).split(".")[0] + "." + str(daily_profit).split(".")[1][:2]
+        return daily_profit
 
     def total_profit_calculator(self):
         '''Calculates the total profit'''
         cursor.execute(self.SQL_COMMAND_TOTAL_PROFIT)
-        results = cursor.fetchall()  # type(results): list
+        results = cursor.fetchall()
 
         total_profit = 0
 
         for r in results:
             try:
-                total_profit += r[0]  # type(r): tuple
+                total_profit += r[0]
             except:
                 pass
         return total_profit
@@ -143,7 +143,7 @@ class Analysis:
     def pair_info(self):
         '''Calculates and prints some values for all past trades'''
         cursor.execute(self.SQL_COMMAND_PAIR_INFO)
-        results = cursor.fetchall()  # type(results): list
+        results = cursor.fetchall()
 
         for i in range(len(results)):
             fail = 0
@@ -175,7 +175,6 @@ class Analysis:
             print("open_timestamp column check okay. INFO:", e)
             pass
 
-
         # Try adding close_timestamp column
         try:
             cursor.execute(self.SQL_COMMAND_TIMESTAMP_CLOSE)
@@ -186,7 +185,7 @@ class Analysis:
     def timestamp_generator(self):
         '''Generates and inserts the timestamps. Note that timestamps are adjusted according to UTC+3'''
         cursor.execute(self.SQL_COMMAND_TIMESTAMP_GENERATOR)
-        results = cursor.fetchall()  # type(results): list
+        results = cursor.fetchall()
 
         for i in range(len(results)):
             try:
@@ -213,7 +212,6 @@ class Analysis:
         daily_id_list = []
 
         current_timestamp = self.current_timestamp
-
         previous_day_timestamp = int(current_timestamp) - self.WHOLE_DAY_TIMESTAMP
 
         for timestamp, id in results:
@@ -277,7 +275,6 @@ class Analysis:
                         account_dictionary["balances"][i]["locked"])) \
                                      * float(pair_info[j]['price'])
         return total_balance
-    # TODO: add functionality by getting api and secret key from parameters
 
     def daily_investment_calculator(self):
         '''Returns the amount invested previous day'''
@@ -286,7 +283,7 @@ class Analysis:
     def total_investment_calculator(self):
         '''Returns the total amount invested'''
         cursor.execute(self.SQL_COMMAND_TOTAL_INVESTMENT)
-        result = cursor.fetchall()  # type(results): list
+        result = cursor.fetchall()
         return result[0][0]
 
     def roi_calculator(self, range):
@@ -326,14 +323,14 @@ class Analysis:
         '''Builds and returns a dictionary to later transform into csv format'''
         data_dictionary = {
             "date": self.yesterday,
-            "account_balance": self.float_formatter(self.balance),
-            "daily_profit": self.float_formatter(self.daily_profit),
+            "account_balance": self.float_formatter(self.balance) + "$",
+            "daily_profit": self.float_formatter(self.daily_profit) + "$",
             "daily_trade_count": self.daily_trade_number,
-            "stake_amount": self.STAKE_AMOUNT_V4,
-            "daily_investment": self.daily_investment,
-            "daily_ROI": self.float_formatter(self.daily_roi),
-            "total_investment": self.float_formatter(self.total_investment),
-            "total_ROI": self.float_formatter(self.total_roi)
+            "stake_amount": str(self.STAKE_AMOUNT_V4) + "$",
+            "daily_investment": str(self.daily_investment) + "$",
+            "daily_ROI": self.float_formatter(self.daily_roi) + "%",
+            "total_investment": self.float_formatter(self.total_investment) + "$",
+            "total_ROI": self.float_formatter(self.total_roi) + "%"
             # "max_open_trades:": self.max_open_trades,
         }
 
@@ -341,7 +338,7 @@ class Analysis:
 
         for i in range(len(investors_list_new)):
             data_dictionary["profit_{}".format(investors_list_new[i]["id"])] = \
-                self.float_formatter(investors_list_new[i]["profit_ratio"] * self.daily_profit)
+                self.float_formatter(investors_list_new[i]["profit_ratio"] * self.daily_profit) + "$"
 
         return data_dictionary
 
@@ -366,7 +363,7 @@ class Analysis:
 
         msg = EmailMessage()
         msg['Subject'] = "Daily Snapshot of {}".format(self.yesterday)
-        msg['From'] = sender_email
+        msg['From'] = "Deniz MATAR <testerdeniztester1@gmail.com>"#sender_email
         msg['To'] = self.mail_list
         msg.set_content(message)
 
