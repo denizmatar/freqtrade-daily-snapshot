@@ -207,7 +207,7 @@ class Analysis:
 
         daily_id_list = []
 
-        current_timestamp = self.current_timestamp #- self.DELTA_UTC ?? :(
+        current_timestamp = self.current_timestamp
         previous_day_timestamp = int(current_timestamp) - self.WHOLE_DAY_TIMESTAMP
 
         for timestamp, id in results:
