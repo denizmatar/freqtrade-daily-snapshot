@@ -71,6 +71,7 @@ class Analysis:
                         self.float_formatter(INVESTORS[investor]['profit_ratio'] * self.daily_profit) + "$"
 
                 print("Data dictionary created for {}".format(investor_name))
+                print(json.dumps(data_dictionary, indent=4))
                 field_names = list(data_dictionary.keys())
 
                 self.csv_writer(investor_name, field_names, headers, data_dictionary)
