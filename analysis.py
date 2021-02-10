@@ -1,6 +1,7 @@
 import time
 import sqlite3
 import json
+import copy
 from datetime import date, timedelta
 from binance.client import Client
 from config import *
@@ -48,7 +49,7 @@ class Analysis:
         self.total_trade_number = self.total_trade_counter()
         self.daily_profit = self.daily_profit_calculator()
         self.total_profit = self.total_profit_calculator()
-        # self.max_open_trades = self.max_open_trades_calculator() # this takes so long, disabled for now
+        # self.max_open_trades = self.max_open_trades_calculator()              # this takes so long, disabled for now
         self.daily_investment = self.daily_investment_calculator()
         self.total_investment = self.total_investment_calculator()
         self.daily_roi = self.roi_calculator("daily")
@@ -56,25 +57,34 @@ class Analysis:
         self.balance = self.get_balances()
         self.profit_apportioner()
         self.data_dictionary = self.dictionary_builder()
-        self.mail_list = self.mail_list_generator()
 
     def daily_snapshot(self, headers=False):
         '''Sort of the main function. Calls dictionary builder to build the dictionary, then writes the new values into csv'''
-        import csv
 
-        field_names = list(self.data_dictionary.keys())
+        for investor in INVESTORS:
+            investor_name = INVESTORS[investor]['id']
 
-        data_dictionary = self.data_dictionary
-        print("Data dictionary created.")
-        print(data_dictionary)
+            if investor == 0:
+                data_dictionary = copy.deepcopy(self.data_dictionary)
+                for investor in INVESTORS:
+                    data_dictionary["profit_{}".format(INVESTORS[investor]['id'])] = \
+                        self.float_formatter(INVESTORS[investor]['profit_ratio'] * self.daily_profit) + "$"
 
-        with open(self.CSV_PATH, mode='a') as csv_file:
-            print("CSV file opened.")
-            writer = csv.DictWriter(csv_file, fieldnames=field_names, delimiter=',', extrasaction='ignore')
-            if headers:
-                writer.writeheader()
-            writer.writerow(data_dictionary)
-            print("New row added.")
+                print("Data dictionary created for {}".format(investor_name))
+                field_names = list(data_dictionary.keys())
+
+                self.csv_writer(investor_name, field_names, headers, data_dictionary)
+
+            else:
+                data_dictionary = copy.deepcopy(self.data_dictionary)
+                data_dictionary["profit_{}".format(investor_name)] = \
+                self.float_formatter(INVESTORS[investor]['profit_ratio'] * self.daily_profit) + "$"
+
+                print("Data dictionary created for {}".format(investor_name))
+                field_names = list(data_dictionary.keys())
+
+                self.csv_writer(investor_name, field_names, headers, data_dictionary)
+
         self.db_closer()
 
     def db_connector(self):
@@ -89,6 +99,17 @@ class Analysis:
         cursor.close()
         connection.close()
         print("DB closed.")
+
+    def csv_writer(self, investor_name, field_names, headers, data_dictionary):
+        import csv
+
+        with open(self.CSV_PATH.format(investor_name), mode='a') as csv_file:
+            print("{}'s daily_snapshot.csv file opened.".format(investor_name))
+            writer = csv.DictWriter(csv_file, fieldnames=field_names, delimiter=',', extrasaction='ignore')
+            if headers:
+                writer.writeheader()
+            writer.writerow(data_dictionary)
+            print("New row added for {}".format(investor_name))
 
     def get_date(self):
         '''Returns current date: (i.e 2021-02-04)'''
@@ -207,7 +228,7 @@ class Analysis:
 
         daily_id_list = []
 
-        current_timestamp = self.current_timestamp
+        current_timestamp = self.current_timestamp #- self.DELTA_UTC # only substract for mac
         previous_day_timestamp = int(current_timestamp) - self.WHOLE_DAY_TIMESTAMP
 
         for timestamp, id in results:
@@ -325,54 +346,45 @@ class Analysis:
             "stake_amount": str(self.STAKE_AMOUNT_V4) + "$",
             "daily_investment": str(self.daily_investment) + "$",
             "daily_ROI": self.float_formatter(self.daily_roi) + "%",
-            "total_investment": self.float_formatter(self.total_investment) + "$", # check this
+            "total_investment": self.float_formatter(self.total_investment) + "$",
             "total_ROI": self.float_formatter(self.total_roi) + "%"
             # "max_open_trades:": self.max_open_trades,
         }
 
-        investors_list_new = list(INVESTORS.values())
-
-        for i in range(len(investors_list_new)):
-            data_dictionary["profit_{}".format(investors_list_new[i]["id"])] = \
-                self.float_formatter(investors_list_new[i]["profit_ratio"] * self.daily_profit) + "$"
-
         return data_dictionary
 
-    def mail_list_generator(self):
-        investors_list = list(INVESTORS.values())
-        receiver_list = [investor['email'] for investor in investors_list]
-        return receiver_list
-
-    def mailer(self, *receiver_list):
-        '''E-mails daily_snapshot.csv'''
+    def mailer(self):
+        '''E-mails daily_snapshot_{investor_name}.csv'''
 
         import smtplib
         from email.message import EmailMessage
 
+
+        sender_email = "testerdeniztester1@gmail.com"
         password = mail_password
         smtp_server = "smtp.gmail.com"
-        sender_email = "testerdeniztester1@gmail.com"
-
-        message = ""
-
-        # server.starttls()     # don't know why this is here
-
-        msg = EmailMessage()
-        msg['Subject'] = "Daily Snapshot of {}".format(self.yesterday)
-        msg['From'] = "Deniz MATAR <testerdeniztester1@gmail.com>"#sender_email
-        msg['To'] = self.mail_list
-        msg.set_content(message)
-
-        attachment = self.CSV_PATH
-
-        with open(attachment, 'rb') as f:
-            file_data = f.read()
-            file_name = f.name
-        msg.add_attachment(file_data, maintype='application', subtype='octet-stream', filename=file_name)
-
         server = smtplib.SMTP_SSL(smtp_server, 465)
         server.login(sender_email, password)
         print("Login successful.")
 
-        server.send_message(msg)
-        print("Message sent.", "\n")
+        # server.starttls()     # don't know why this is here
+
+        for investor in INVESTORS:
+            investor_name = INVESTORS[investor]['id']
+
+            attachment = self.CSV_PATH.format(investor_name)
+            message = ""
+
+            msg = EmailMessage()
+            msg['Subject'] = f"Daily Snapshot of {self.yesterday}"
+            msg['From'] = "Deniz MATAR <testerdeniztester1@gmail.com>"
+            msg['To'] = INVESTORS[investor]['email']
+            msg.set_content(message)
+
+            with open(attachment, 'rb') as f:
+                file_data = f.read()
+                file_name = f.name
+            msg.add_attachment(file_data, maintype='application', subtype='octet-stream', filename=file_name)
+
+            server.send_message(msg)
+            print(f"Message sent to {investor_name}")
