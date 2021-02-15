@@ -41,9 +41,9 @@ class Analysis:
         self.db_path = self.DATABASE_PATH
         self.db_connector(self.db_path)
         self.current_time, self.yesterday = self.get_date()
-        self.current_timestamp = self.current_timestamp_generator()
+        self.current_timestamp = self.timestamp_generator(self.current_time)
         self.add_timestamp_columns()
-        self.timestamp_generator()
+        self.add_timestamps()
         self.daily_id_list = self.daily_id_list_generator()
         self.daily_trade_number = self.daily_trade_counter()
         self.total_trade_number = self.total_trade_counter()
@@ -120,11 +120,10 @@ class Analysis:
 
         return str(today), str(yesterday)
 
-    def current_timestamp_generator(self):
-        current_timestamp = int(str(time.mktime(time.strptime(self.current_time, "%Y-%m-%d"))).split(".")[0])
-        # current_timestamp = 1612828800        # for testing with old databases
-        return current_timestamp
-    # TODO: add functionality by adding a time parameter
+    def timestamp_generator(self, date):
+        timestamp = int(str(time.mktime(time.strptime(date, "%Y-%m-%d"))).split(".")[0])
+        # timestamp = 1612828800        # for testing with old databases
+        return timestamp
 
     def get_all(self):
         '''Gathers all data'''
@@ -200,7 +199,7 @@ class Analysis:
             print("close_timestamp column check okay. INFO:", e)
             pass
 
-    def timestamp_generator(self):
+    def add_timestamps(self):
         '''Generates and inserts the timestamps. Note that timestamps are adjusted according to UTC+3'''
         cursor.execute(self.SQL_COMMAND_TIMESTAMP_GENERATOR)
         results = cursor.fetchall()
