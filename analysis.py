@@ -39,7 +39,7 @@ class Analysis:
 
     def __init__(self):
         self.db_path = self.DATABASE_PATH
-        self.db_connector()
+        self.db_connector(self.db_path)
         self.current_time, self.yesterday = self.get_date()
         self.current_timestamp = self.current_timestamp_generator()
         self.add_timestamp_columns()
@@ -88,10 +88,10 @@ class Analysis:
 
         self.db_closer()
 
-    def db_connector(self):
+    def db_connector(self, db_path):
         '''Starts the connection with the database'''
         global connection, cursor
-        connection = sqlite3.connect(self.db_path)
+        connection = sqlite3.connect(db_path)
         cursor = connection.cursor()
         print("DB connection successful.")
 
@@ -325,13 +325,19 @@ class Analysis:
         investors_list = list(INVESTORS.values())
         number_of_investors = len(INVESTORS)
         total_investment = sum([investor['investment'] for investor in investors_list])
-        investors_list[0]['profit_ratio'] = 1
 
-        for i in range(number_of_investors):
-            if investors_list[i]['id'] != 'DENIZ':
-                profit_ratio = investors_list[i]["investment"] / total_investment * (1 - investors_list[i]["commission"])
-                INVESTORS[0]['profit_ratio'] -= profit_ratio
+        if self.daily_profit > 0:
+            investors_list[0]['profit_ratio'] = 1
+            for i in range(number_of_investors):
+                if investors_list[i]['id'] != 'DENIZ':
+                    profit_ratio = investors_list[i]["investment"] / total_investment * (1 - investors_list[i]["commission"])
+                    INVESTORS[0]['profit_ratio'] -= profit_ratio
+                    INVESTORS[i]["profit_ratio"] = profit_ratio
+        else:
+            for i in range(number_of_investors):
+                profit_ratio = investors_list[i]["investment"] / total_investment
                 INVESTORS[i]["profit_ratio"] = profit_ratio
+            print(INVESTORS)
 
     def float_formatter(self, float):
         '''Formats the floats to display only 2 decimals'''
@@ -353,6 +359,12 @@ class Analysis:
         }
 
         return data_dictionary
+
+    def plotter(self):
+        pass
+
+    def version_comparer(self):
+        pass
 
     def mailer(self):
         '''E-mails daily_snapshot_{investor_name}.csv'''
