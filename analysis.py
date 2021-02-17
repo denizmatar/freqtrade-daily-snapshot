@@ -16,21 +16,24 @@ class Analysis:
     STAKE_AMOUNT_V1 = 16.5
     STAKE_AMOUNT_V2 = 62.5
     STAKE_AMOUNT_V3 = 87.5
-    STAKE_AMOUNT_V4 = 140     # Only V4 is used
+    STAKE_AMOUNT_V4 = 140
+    STAKE_AMOUNT_V5 = 177.5
+    STAKE_AMOUNT_V6 = 240       # Only V6 is used
 
-    SQL_COMMAND_ALL = "SELECT trades.id AS trades_id, trades.exchange AS trades_exchange, trades.pair AS trades_pair, trades.is_open AS trades_is_open, trades.fee_open AS trades_fee_open, trades.fee_open_cost AS trades_fee_open_cost, trades.fee_open_currency AS trades_fee_open_currency, trades.fee_close AS trades_fee_close, trades.fee_close_cost AS trades_fee_close_cost, trades.fee_close_currency AS trades_fee_close_currency, trades.open_rate AS trades_open_rate, trades.open_rate_requested AS trades_open_rate_requested, trades.open_trade_value AS trades_open_trade_value, trades.close_rate AS trades_close_rate, trades.close_rate_requested AS trades_close_rate_requested, trades.close_profit AS trades_close_profit, trades.close_profit_abs AS trades_close_profit_abs, trades.stake_amount AS trades_stake_amount, trades.amount AS trades_amount, trades.amount_requested AS trades_amount_requested, trades.open_date AS trades_open_date, trades.close_date AS trades_close_date, trades.open_order_id AS trades_open_order_id, trades.stop_loss AS trades_stop_loss, trades.stop_loss_pct AS trades_stop_loss_pct, trades.initial_stop_loss AS trades_initial_stop_loss, trades.initial_stop_loss_pct AS trades_initial_stop_loss_pct, trades.stoploss_order_id AS trades_stoploss_order_id, trades.stoploss_last_update AS trades_stoploss_last_update, trades.max_rate AS trades_max_rate, trades.min_rate AS trades_min_rate, trades.sell_reason AS trades_sell_reason, trades.sell_order_status AS trades_sell_order_status, trades.strategy AS trades_strategy, trades.timeframe AS trades_timeframe FROM trades"
-    SQL_COMMAND_TOTAL_PROFIT = "SELECT trades.close_profit_abs FROM trades WHERE sell_order_status ='closed'"
-    SQL_COMMAND_DAILY_PROFIT = "SELECT trades.id, trades.close_profit_abs FROM trades"
-    SQL_COMMAND_PAIR_INFO = "SELECT trades.open_rate, trades.max_rate, trades.close_rate, trades.close_profit, trades.stake_amount, trades.pair " \
+    SQL_COMMAND_ALL = "SELECT id AS trades_id, exchange AS trades_exchange, pair AS trades_pair, is_open AS trades_is_open, fee_open AS trades_fee_open, fee_open_cost AS trades_fee_open_cost, fee_open_currency AS trades_fee_open_currency, fee_close AS trades_fee_close, fee_close_cost AS trades_fee_close_cost, fee_close_currency AS trades_fee_close_currency, open_rate AS trades_open_rate, open_rate_requested AS trades_open_rate_requested, open_trade_value AS trades_open_trade_value, close_rate AS trades_close_rate, close_rate_requested AS trades_close_rate_requested, close_profit AS trades_close_profit, close_profit_abs AS trades_close_profit_abs, stake_amount AS trades_stake_amount, amount AS trades_amount, amount_requested AS trades_amount_requested, open_date AS trades_open_date, close_date AS trades_close_date, open_order_id AS trades_open_order_id, stop_loss AS trades_stop_loss, stop_loss_pct AS trades_stop_loss_pct, initial_stop_loss AS trades_initial_stop_loss, initial_stop_loss_pct AS trades_initial_stop_loss_pct, stoploss_order_id AS trades_stoploss_order_id, stoploss_last_update AS trades_stoploss_last_update, max_rate AS trades_max_rate, min_rate AS trades_min_rate, sell_reason AS trades_sell_reason, sell_order_status AS trades_sell_order_status, strategy AS trades_strategy, timeframe AS trades_timeframe FROM trades"
+    SQL_COMMAND_TOTAL_PROFIT = "SELECT close_profit_abs FROM trades WHERE sell_order_status ='closed'"
+    SQL_COMMAND_DAILY_PROFIT = "SELECT id, close_profit_abs FROM trades"
+    SQL_COMMAND_PAIR_INFO = "SELECT open_rate, max_rate, close_rate, close_profit, stake_amount, pair " \
                             "FROM trades " \
                             "WHERE sell_order_status ='closed'"
     SQL_COMMAND_TIMESTAMP_OPEN = "ALTER TABLE trades ADD open_timestamp"
     SQL_COMMAND_TIMESTAMP_CLOSE = "ALTER TABLE trades ADD close_timestamp"
-    SQL_COMMAND_MAX_OPEN_TRADES = "SELECT trades.pair, trades.open_timestamp, trades.close_timestamp FROM trades WHERE close_timestamp IS NOT NULL"
-    SQL_COMMAND_TOTAL_INVESTMENT = "SELECT SUM(trades.stake_amount) FROM trades"
-    SQL_COMMAND_DAILY_TRADE_COUNT = "SELECT trades.close_timestamp, trades.id FROM trades WHERE close_timestamp IS NOT NULL"
+    SQL_COMMAND_MAX_OPEN_TRADES = "SELECT pair, open_timestamp, close_timestamp FROM trades WHERE close_timestamp IS NOT NULL"
+    SQL_COMMAND_DAILY_INVESTMENT = "SELECT stake_amount, id FROM trades"#" WHERE id = ?"
+    SQL_COMMAND_TOTAL_INVESTMENT = "SELECT SUM(stake_amount) FROM trades"
+    SQL_COMMAND_DAILY_TRADE_COUNT = "SELECT close_timestamp, id FROM trades WHERE close_timestamp IS NOT NULL"
     SQL_COMMAND_TOTAL_TRADE_COUNT = "SELECT COUNT(*) FROM trades"
-    SQL_COMMAND_TIMESTAMP_GENERATOR = "SELECT trades.open_date, trades.close_date, id FROM trades"#" WHERE close_timestamp IS NULL"
+    SQL_COMMAND_TIMESTAMP_GENERATOR = "SELECT open_date, close_date, id FROM trades"
     SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_OPEN = "UPDATE trades SET open_timestamp = ? WHERE id = ?"
     SQL_COMMAND_TIMESTAMP_GENERATOR_INSERT_CLOSE = "UPDATE trades SET close_timestamp = ? WHERE id = ?"
 
@@ -295,7 +298,16 @@ class Analysis:
 
     def daily_investment_calculator(self):
         '''Returns the amount invested previous day'''
-        return len(self.daily_id_list) * self.STAKE_AMOUNT_V4
+        cursor.execute(self.SQL_COMMAND_DAILY_INVESTMENT)
+        result = cursor.fetchall()
+
+        daily_investment = 0
+        for r in result:
+            if r[1] in self.daily_id_list:
+                daily_investment += r[0]
+
+        return daily_investment
+    # TODO: use binary search instead of for loop
 
     def total_investment_calculator(self):
         '''Returns the total amount invested'''
@@ -336,7 +348,6 @@ class Analysis:
             for i in range(number_of_investors):
                 profit_ratio = investors_list[i]["investment"] / total_investment
                 INVESTORS[i]["profit_ratio"] = profit_ratio
-            print(INVESTORS)
 
     def float_formatter(self, float):
         '''Formats the floats to display only 2 decimals'''
@@ -349,7 +360,7 @@ class Analysis:
             "account_balance": self.float_formatter(self.balance) + "$",
             "daily_profit": self.float_formatter(self.daily_profit) + "$",
             "daily_trade_count": self.daily_trade_number,
-            "stake_amount": str(self.STAKE_AMOUNT_V4) + "$",
+            "stake_amount": str(self.STAKE_AMOUNT_V6) + "$",
             "daily_investment": str(self.daily_investment) + "$",
             "daily_ROI": self.float_formatter(self.daily_roi) + "%",
             "total_investment": self.float_formatter(self.total_investment) + "$",
